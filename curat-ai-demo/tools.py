@@ -589,6 +589,91 @@ def get_data_info(ctx: RunContext[Dependencies], data_id: str) -> str:
     return info
 
 
+def get_data_steward_info():
+    """
+    Returns information about data stewards/owners and what makes data well curated.
+    """
+    return (
+        "Data stewards or owners are responsible for the quality, documentation, and governance of data assets. "
+        "Declarative and well-curated data is well-documented, has clear ownership, and follows best practices for data governance."
+        """
+Purpose: This document outlines steward assignment logic for key domain experts. It defines domain scope for each user and provides matching rules to guide automated steward suggestions based on table metadata (table name, schema, column names, glossary terms, tags, etc.).
+
+👤 Mrugesh
+Domain: Product Engineering & IoT Telemetry
+Description: Expert in datasets related to hardware components, engineering design data, sensor logs, telemetry signals, machine diagnostics, and firmware metrics.
+
+Matching Criteria:
+
+Schema/Table/Column contains terms like: telemetry, sensor, firmware, device_metrics, diagnostics, component_status
+
+Belongs to schemas: iot_logs, device_metrics, hardware_telemetry
+
+Tag examples: IoT, DeviceHealth, EngineeringData
+
+👤 Yogesh(YK)
+Domain: Scientific Modeling & Experimental Data
+Description: Specializes in data from simulations, lab experiments, and model evaluations. Handles structured/unstructured research data and hypothesis tracking.
+
+Matching Criteria:
+
+Schema/Table/Column contains: experiment, model_eval, hypothesis, sim_results, lab_data
+
+Belongs to schemas: science_lab, research_data, modeling
+
+Tag examples: Simulation, LabData, R&D, MLExperimentTracking
+
+👤 Harsh Patel
+Domain: Customer Behavior & Engagement Analytics
+Description: Focused on customer interaction data, session metrics, engagement funnels, clickstream analytics, and web/mobile behavior tracking.
+
+Matching Criteria:
+
+Table name or column contains: clickstream, session, user_events, engagement, page_views, conversion_rate
+
+Belongs to schemas: customer_analytics, behavior_tracking, web_analytics
+
+Tag examples: UserEngagement, WebAnalytics, SessionData
+
+👤 Salil Admiin
+Domain: Inventory, Logistics & Supply Chain
+Description: Manages data products related to warehouse operations, supply chain flow, shipment tracking, and SKU-level inventory analytics.
+
+Matching Criteria:
+
+Table or column contains: inventory, shipment, warehouse, supply_chain, sku, stock_level, order_fulfillment
+
+Schemas: logistics, inventory_ops, supply_data
+
+Tag examples: InventoryAnalytics, SupplyChain, WarehouseData
+
+👤 Abhinav Khandelwal
+Domain: Finance & Revenue Analytics
+Description: Expert in financial metrics, transactions, pricing models, profit/loss dashboards, and budgeting forecasts.
+
+Matching Criteria:
+
+Table or column contains: revenue, profit, forecast, pricing, budget, transaction, invoice, AR_AP
+
+Schemas: finance_reporting, revenue_mgmt, transactions
+
+Tag examples: FinanceData, RevenueAnalytics, ProfitForecast
+
+🧠 Usage Guide for Agent
+When scanning a new table, the agent should:
+
+Analyze schema, table name, and column names
+
+Check tags, glossary links, and usage lineage
+
+Match against the criteria above
+
+Suggest the top 1–2 matching stewards for approval
+
+Optionally: If the table matches multiple domains, assign co-stewards or route for manual resolution.
+"""
+    )
+
 
 
 
