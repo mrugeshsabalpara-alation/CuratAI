@@ -2,12 +2,23 @@ import os
 import asyncio
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from chat import get_agent
 from tools import Dependencies
 from auth import AlationAuth
 
+
 app = FastAPI()
+
+# Allow all CORS (public API)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Set up agent and dependencies once at startup
 al_username = os.getenv("ALATION_USERNAME")
