@@ -266,6 +266,103 @@ def update_custom_field(
         f"with operation '{operation}'."
     )
 
+def update_title(
+    ctx: RunContext[Dependencies],
+    otype: str,
+    object_name: str,
+    key: str,
+    value,
+) -> str:
+    """
+    Update a title for a given object.
+
+    Args:
+        ctx: RunContext with dependencies
+        otype: The object type (e.g., 'table', 'column')
+        object_name: The object name
+        key: The object key
+        value: The value to set/add/remove (can be string, int, or list depending on field type)
+
+    Returns:
+        Result message indicating success or error.
+    """
+    session = ctx.deps.session
+
+    if not key:
+        if object_name:
+            if otype == 'table':
+                table_info = get_table_info(ctx, table_name=object_name)
+                key = get_key_from_object_info(table_info)
+            if otype == 'attribute':
+                column_info = get_column_info(ctx, column_name=object_name)
+                key = get_key_from_object_info(column_info)
+        else:
+            return f"Please provide a {otype} name or key"
+    if key:
+        url = f"{ctx.deps.al_base_url}/integration/v2/table/"
+        payload = {"key": key, "title": value}
+        headers = {"Content-Type": "application/json"}
+        try:
+            response = session.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            return f"Error updating title: {e} - {getattr(e.response, 'text', '')}"
+
+        return (
+        f"Title is successfully updated for {otype} '{object_name}' "
+        )
+    else:
+        return "No {otype} found with name {object_name}."
+
+def update_description(
+    ctx: RunContext[Dependencies],
+    otype: str,
+    object_name: str,
+    key: str,
+    value,
+) -> str:
+    """
+    Update a description for a given object.
+
+    Args:
+        ctx: RunContext with dependencies
+        otype: The object type (e.g., 'table', 'column')
+        object_name: The object name
+        key: The object key
+        value: The value to set/add/remove (can be string, int, or list depending on field type)
+
+    Returns:
+        Result message indicating success or error.
+    """
+    session = ctx.deps.session
+
+    if not key:
+        if object_name:
+            if otype == 'table':
+                table_info = get_table_info(ctx, table_name=object_name)
+                key = get_key_from_object_info(table_info)
+            if otype == 'attribute':
+                column_info = get_column_info(ctx, column_name=object_name)
+                key = get_key_from_object_info(column_info)
+        else:
+            return f"Please provide a {otype} name or key"
+    if key:
+        url = f"{ctx.deps.al_base_url}/integration/v2/table/"
+        payload = {"key": key, "description": value}
+        headers = {"Content-Type": "application/json"}
+        try:
+            response = session.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            return f"Error updating description: {e} - {getattr(e.response, 'text', '')}"
+
+        return (
+            f"Description is successfully updated for {otype} '{object_name}' "
+        )
+    else:
+         return "No {otype} found with name {object_name}."   
+
+
 def propagate_custom_field(
     ctx: RunContext[Dependencies],
     object_type: str,
@@ -434,36 +531,69 @@ def get_user_info(ctx: RunContext[Dependencies], user_name: str = None, email: s
     return info
 
 
-
-############################### check if works ###############
-def get_folder_info(ctx: RunContext[Dependencies], folder_id: str) -> str:
+def get_all_folders(ctx: RunContext[Dependencies], folder_id: str=None, name: str=None) -> str:
     """
-    Get information about a specific folder by its ID.
+    Get all folders, or get folder by id or get folder by name
 
     Args:
         ctx: RunContext with dependencies
         folder_id: The ID of the folder to get information about
-
+        name: The name of the folder to get information about
     Returns:
         str: Information about the folder or an error message
     """
     session = ctx.deps.session
-    api_url = f"/integration/v2/folder/{folder_id}/"
+    # Build query params
+    params = []
+    if folder_id:
+        params.append(f"id={folder_id}")
+    query = "?" + "&".join(params) if params else ""
+    api_url = f"/integration/v2/folder/{query}"
     response = session.get(ctx.deps.al_base_url + api_url)
     response.raise_for_status()
-    folder = response.json()
-    if not folder:
-        return f"No folder found with ID '{folder_id}'."
-    
-    info = (
-        f"Folder ID: {folder.get('id', 'N/A')}\n"
-        f"Name: {folder.get('name', 'N/A')}\n"
-        f"Description: {folder.get('description', 'N/A')}\n"
-        f"Owner: {folder.get('owner', 'N/A')}\n"
-        f"Created At: {folder.get('created_at', 'N/A')}\n"
-        f"Updated At: {folder.get('updated_at', 'N/A')}\n"
-    )
-    return info
+    folders = response.json()
+    if not folders:
+        if folder_id:
+            return f"No folder found with ID '{folder_id}'."
+        else:
+            return "No folders found."
+
+    # Filter folders by name if provided
+    filtered_folders = []
+    for f in folders:
+        name_match = name.lower() in (f.get('title', '') or '').lower() if name else True
+        if name_match:
+            filtered_folders.append(f)
+
+    if not filtered_folders:
+        if folder_id and name:
+            return f"No folder found with ID '{folder_id}' and name containing '{name}'."
+        elif folder_id:
+            return f"No folder found with ID '{folder_id}'."
+        elif name:
+            return f"No folder found with name containing '{name}'."
+        else:
+            return "No folders found."
+
+    # If multiple, show all; if one, show details
+    results = []
+    for folder in filtered_folders:
+        info = (
+            f"Folder ID: {folder.get('id', 'N/A')}\n"
+            f"Title: {folder.get('title', 'N/A')}\n"
+            f"Description: {folder.get('description', 'N/A')}\n"
+            f"Template ID: {folder.get('template_id', 'N/A')}\n"
+            f"Document Hub ID: {folder.get('document_hub_id', 'N/A')}\n"
+            f"Parent Folder ID: {folder.get('parent_folder_id', 'N/A')}\n"
+            f"Child Folders Count: {folder.get('child_folders_count', 'N/A')}\n"
+            f"Child Documents Count: {folder.get('child_documents_count', 'N/A')}\n"
+            f"Nav Links Count: {folder.get('nav_links_count', 'N/A')}\n"
+            f"Created At: {folder.get('ts_created', 'N/A')}\n"
+            f"Updated At: {folder.get('ts_updated', 'N/A')}\n"
+            f"Deleted: {folder.get('deleted', 'N/A')}\n"
+        )
+        results.append(info)
+    return "\n---\n".join(results)
 
 
 
@@ -559,35 +689,70 @@ def get_schema_info(ctx: RunContext[Dependencies], schema_id: str) -> str:
 
 
 
-def get_data_info(ctx: RunContext[Dependencies], data_id: str) -> str:
+def get_all_datasources(ctx: RunContext[Dependencies], data_id: str=None, name: str=None) -> str:
     """
-    Get information about a specific data asset by its ID.
+    Get all datasources, or get datasource by id or get datasource by name
 
     Args:
         ctx: RunContext with dependencies
         data_id: The ID of the data asset to get information about
-
+        name: The name of the data asset to get information about
     Returns:
         str: Information about the data asset or an error message
     """
     session = ctx.deps.session
-    api_url = f"/integration/v2/data/{data_id}/"
+    api_url = f"/integration/v1/datasource/"
     response = session.get(ctx.deps.al_base_url + api_url)
     response.raise_for_status()
-    data_asset = response.json()
-    if not data_asset:
-        return f"No data asset found with ID '{data_id}'."
-    
-    info = (
-        f"Data Asset ID: {data_asset.get('id', 'N/A')}\n"
-        f"Name: {data_asset.get('name', 'N/A')}\n"
-        f"Description: {data_asset.get('description', 'N/A')}\n"
-        f"Owner: {data_asset.get('owner', 'N/A')}\n"
-        f"Created At: {data_asset.get('created_at', 'N/A')}\n"
-        f"Updated At: {data_asset.get('updated_at', 'N/A')}\n"
-    )
-    return info
+    data_assets = response.json()
+    if not data_assets or not isinstance(data_assets, list):
+        return f"No data assets found."
 
+    filtered_assets = []
+    for asset in data_assets:
+        id_match = int(data_id) == asset.get('id')  if data_id else True
+        name_match = name.lower() in (asset.get('title', '') or '').lower() if name else True
+        if id_match and name_match:
+            filtered_assets.append(asset)
+
+    if not filtered_assets:
+        if data_id and name:
+            return f"No folder found with ID '{data_id}' and name containing '{name}'."
+        elif data_id:
+            return f"No folder found with ID '{data_id}'."
+        elif name:
+            return f"No folder found with name containing '{name}'."
+        else:
+            return "No folders found."
+
+
+    # Show details for each matching asset (should be one)
+    results = []
+    for asset in filtered_assets:
+        info = (
+            f"Data Asset ID: {asset.get('id', 'N/A')}\n"
+            f"Title: {asset.get('title', 'N/A')}\n"
+            f"DB Type: {asset.get('dbtype', 'N/A')}\n"
+            f"Is Virtual: {asset.get('is_virtual', 'N/A')}\n"
+            f"Description: {asset.get('description', 'N/A')}\n"
+            f"Enabled in Compose: {asset.get('enabled_in_compose', 'N/A')}\n"
+            f"Supports Profiling: {asset.get('supports_profiling', 'N/A')}\n"
+            f"Supports Compose: {asset.get('supports_compose', 'N/A')}\n"
+            f"Owner IDs: {asset.get('owner_ids', [])}\n"
+            f"Created At: {asset.get('created_at', 'N/A')}\n"
+            f"Updated At: {asset.get('updated_at', 'N/A')}\n"
+            f"Deleted: {asset.get('deleted', 'N/A')}\n"
+        )
+        results.append(info)
+    return "\n---\n".join(results)
+
+def get_key_from_object_info(object_info):
+    key = None
+    for info in object_info.split('\n'):
+        info_key_value = info.split(':')
+        if info_key_value[0] == "Column Key" or info_key_value[0] == "Table Key":
+            key = info_key_value[1]
+    return key    
 
 def get_data_steward_info():
     """

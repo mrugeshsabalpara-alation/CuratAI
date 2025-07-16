@@ -21,6 +21,12 @@ from tools import (
     propagate_custom_field,
     get_user_info,
     get_data_steward_info,
+    get_all_folders,
+    get_document_info,
+    get_all_datasources,
+    get_schema_info,
+    update_title,
+    update_description
 )
 from utils import run_agent
 
@@ -46,9 +52,22 @@ def get_agent(model_provider: str, model_name: str) -> Agent:
     model = f"{model_provider}:{model_name}"
     agent = Agent(
         model,
-        tools=[search_data_products, get_data_product_schema,get_table_info, get_column_info, get_all_fields_for_otype_oid, update_custom_field,propagate_custom_field,get_user_info, get_data_steward_info],
+        tools=[search_data_products,
+                get_data_product_schema,
+                get_table_info, 
+                get_column_info, 
+                get_all_fields_for_otype_oid, 
+                update_custom_field,
+                propagate_custom_field,get_user_info,
+                get_all_folders,
+                get_document_info,
+                get_all_datasources,
+                get_schema_info,
+                update_title, 
+                update_description,
+                get_data_steward_info],
         system_prompt=system_prompt,
-        #mcp_servers=[mcp_sql_server],
+        # mcp_servers=[mcp_sql_server],
     )
     return agent
 
