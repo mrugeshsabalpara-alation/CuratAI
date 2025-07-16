@@ -23,7 +23,9 @@ from tools import (
     get_all_folders,
     get_document_info,
     get_all_datasources,
-    get_schema_info
+    get_schema_info,
+    update_title,
+    update_description
 )
 from utils import run_agent
 
@@ -48,7 +50,9 @@ def get_agent(model_provider: str, model_name: str) -> Agent:
                 get_all_folders,
                 get_document_info,
                 get_all_datasources,
-                get_schema_info],
+                get_schema_info,
+                update_title, 
+                update_description],
         system_prompt=system_prompt,
         # mcp_servers=[mcp_sql_server],
     )

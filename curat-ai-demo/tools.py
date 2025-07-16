@@ -266,6 +266,103 @@ def update_custom_field(
         f"with operation '{operation}'."
     )
 
+def update_title(
+    ctx: RunContext[Dependencies],
+    otype: str,
+    object_name: str,
+    key: str,
+    value,
+) -> str:
+    """
+    Update a title for a given object.
+
+    Args:
+        ctx: RunContext with dependencies
+        otype: The object type (e.g., 'table', 'column')
+        object_name: The object name
+        key: The object key
+        value: The value to set/add/remove (can be string, int, or list depending on field type)
+
+    Returns:
+        Result message indicating success or error.
+    """
+    session = ctx.deps.session
+
+    if not key:
+        if object_name:
+            if otype == 'table':
+                table_info = get_table_info(ctx, table_name=object_name)
+                key = get_key_from_object_info(table_info)
+            if otype == 'attribute':
+                column_info = get_column_info(ctx, column_name=object_name)
+                key = get_key_from_object_info(column_info)
+        else:
+            return f"Please provide a {otype} name or key"
+    if key:
+        url = f"{ctx.deps.al_base_url}/integration/v2/table/"
+        payload = {"key": key, "title": value}
+        headers = {"Content-Type": "application/json"}
+        try:
+            response = session.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            return f"Error updating title: {e} - {getattr(e.response, 'text', '')}"
+
+        return (
+        f"Title is successfully updated for {otype} '{object_name}' "
+        )
+    else:
+        return "No {otype} found with name {object_name}."
+
+def update_description(
+    ctx: RunContext[Dependencies],
+    otype: str,
+    object_name: str,
+    key: str,
+    value,
+) -> str:
+    """
+    Update a description for a given object.
+
+    Args:
+        ctx: RunContext with dependencies
+        otype: The object type (e.g., 'table', 'column')
+        object_name: The object name
+        key: The object key
+        value: The value to set/add/remove (can be string, int, or list depending on field type)
+
+    Returns:
+        Result message indicating success or error.
+    """
+    session = ctx.deps.session
+
+    if not key:
+        if object_name:
+            if otype == 'table':
+                table_info = get_table_info(ctx, table_name=object_name)
+                key = get_key_from_object_info(table_info)
+            if otype == 'attribute':
+                column_info = get_column_info(ctx, column_name=object_name)
+                key = get_key_from_object_info(column_info)
+        else:
+            return f"Please provide a {otype} name or key"
+    if key:
+        url = f"{ctx.deps.al_base_url}/integration/v2/table/"
+        payload = {"key": key, "description": value}
+        headers = {"Content-Type": "application/json"}
+        try:
+            response = session.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            return f"Error updating description: {e} - {getattr(e.response, 'text', '')}"
+
+        return (
+            f"Description is successfully updated for {otype} '{object_name}' "
+        )
+    else:
+         return "No {otype} found with name {object_name}."   
+
+
 def propagate_custom_field(
     ctx: RunContext[Dependencies],
     object_type: str,
@@ -649,6 +746,13 @@ def get_all_datasources(ctx: RunContext[Dependencies], data_id: str=None, name: 
         results.append(info)
     return "\n---\n".join(results)
 
+def get_key_from_object_info(object_info):
+    key = None
+    for info in object_info.split('\n'):
+        info_key_value = info.split(':')
+        if info_key_value[0] == "Column Key" or info_key_value[0] == "Table Key":
+            key = info_key_value[1]
+    return key    
 
 
 
