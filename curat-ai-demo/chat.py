@@ -20,6 +20,10 @@ from tools import (
     update_custom_field,
     propagate_custom_field,
     get_user_info,
+    get_all_folders,
+    get_document_info,
+    get_all_datasources,
+    get_schema_info
 )
 from utils import run_agent
 
@@ -34,9 +38,19 @@ def get_agent(model_provider: str, model_name: str) -> Agent:
     model = f"{model_provider}:{model_name}"
     agent = Agent(
         model,
-        tools=[search_data_products, get_data_product_schema,get_table_info, get_column_info, get_all_fields_for_otype_oid, update_custom_field,propagate_custom_field,get_user_info],
+        tools=[search_data_products,
+                get_data_product_schema,
+                get_table_info, 
+                get_column_info, 
+                get_all_fields_for_otype_oid, 
+                update_custom_field,
+                propagate_custom_field,get_user_info,
+                get_all_folders,
+                get_document_info,
+                get_all_datasources,
+                get_schema_info],
         system_prompt=system_prompt,
-        mcp_servers=[mcp_sql_server],
+        # mcp_servers=[mcp_sql_server],
     )
     return agent
 
@@ -49,15 +63,15 @@ async def main():
     parser.add_argument(
         "--provider",
         type=str,
-        default="openai",
+        default="bedrock",
         choices=["openai", "anthropic","bedrock"],
         help="Model provider (openai or anthropic or bedrock)",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4.1",
-        help="Model name (e.g., gpt-4.1, claude-3-5-sonnet-latest)",
+        default="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        help="Model name (e.g., gpt-4.1, us.anthropic.claude-3-5-sonnet-20241022-v2:0)",
     )
     parser.add_argument(
         "--verbose",
