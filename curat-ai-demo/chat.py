@@ -49,15 +49,15 @@ async def main():
     parser.add_argument(
         "--provider",
         type=str,
-        default="openai",
+        default="bedrock",
         choices=["openai", "anthropic","bedrock"],
         help="Model provider (openai or anthropic or bedrock)",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4.1",
-        help="Model name (e.g., gpt-4.1, claude-3-5-sonnet-latest)",
+        default="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        help="Model name (e.g., gpt-4.1, us.anthropic.claude-3-5-sonnet-20241022-v2:0)",
     )
     parser.add_argument(
         "--verbose",
