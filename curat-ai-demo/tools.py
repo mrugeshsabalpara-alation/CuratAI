@@ -74,22 +74,38 @@ def search_data_products(
     serialized_products = "\n".join(products[:limit])
     return f"Total Products Available: {total}\nLimit: {limit}\n--------\n\n{serialized_products}"
 
-def get_table_info(ctx: RunContext[Dependencies], table_name: str = None, key: str = None) -> str:
-    """Get information about a specific table present in the data product.
+def get_table_info(
+    ctx: RunContext[Dependencies],
+    table_name: str = None,
+    key: str = None,
+    ds_id: str = None,
+    schema_name: str = None
+) -> str:
+    """
+    Get information about a specific table present in the data product.
 
     Args:
         table_name: Name of the table to get information about
         key: Unique key of the table (optional)
+        ds_id: Data source ID (optional)
+        schema_name: Schema name (optional)
     """
     session = ctx.deps.session
-
-    if key:
-        # Fetch by key (assume key is unique)
-        api_url = f"/integration/v2/table/?id={key}"
+    print("Getting table info for:", table_name, "with key:", key, "ds_id:", ds_id, "schema_name:", schema_name)
+    if ds_id and schema_name and table_name:
+        # Most precise: all identifiers provided
+        api_url = (
+            f"/integration/v2/table/?ds_id={ds_id}"
+            f"&schema_name__iexact={schema_name}"
+            f"&name__iexact={table_name}&limit=100&skip=0"
+        )
+    elif key:
+        # If key is provided, use it (assuming key is unique)
+        api_url = f"/integration/v2/table/?key={key}&limit=100&skip=0"
     elif table_name:
         api_url = f"/integration/v2/table/?name__iexact={table_name}&limit=100&skip=0"
     else:
-        return "Please provide either 'table_name' or 'key'."
+        return "Please provide either 'table_name', 'key', or ('ds_id', 'schema_name', and 'table_name')."
 
     response = session.get(ctx.deps.al_base_url + api_url)
     response.raise_for_status()
@@ -97,15 +113,17 @@ def get_table_info(ctx: RunContext[Dependencies], table_name: str = None, key: s
     if not tables:
         if key:
             return f"No table found with key '{key}'."
+        if ds_id and schema_name and table_name:
+            return f"No table found with ds_id '{ds_id}', schema '{schema_name}', and name '{table_name}'."
         return f"No table found with name '{table_name}'."
-    if len(tables) > 1 and not key:
+    if len(tables) > 1 and not key and not (ds_id and schema_name and table_name):
         msg = "Multiple tables found:\n"
         for t in tables:
             fq_name = t.get('fully_qualified_name') or f"{t.get('schema_name', 'N/A')}.{t['name']}"
             msg += (
                 f"- id: {t['id']}, name: {t['name']}, fully qualified name: {fq_name}\n"
             )
-        msg += "Please specify the fully qualified name or use the 'key' parameter to narrow down your search."
+        msg += "Please specify the fully qualified name, use the 'key' parameter, or provide ds_id, schema_name, and table_name to narrow down your search."
         return msg
     table = tables[0]
     info = (
@@ -127,8 +145,34 @@ def get_table_info(ctx: RunContext[Dependencies], table_name: str = None, key: s
 
 
 def get_column_info(ctx: RunContext[Dependencies], table_name: str, column_name: str) -> str:
-    """Get information about a specific column in a table.
+    """Get information about a specific column in a table. When key , then use the FQDN format of key For example, if the key is "datasource_id.schema_name.table_name", then use "schema_name.table_name.column_name" (1303.ALATION_EDW.RETAIL.HOTEL_GUESTS.GUEST_ID) as the key.
 
+    '''
+        {
+        "id": 3,
+        "name": "value_text",
+        "title": "",
+        "description": "",
+        "ds_id": 1,
+        "key": "1.public.rosemeta_customfieldvalue.value_text",
+        "url": "/attribute/3/",
+        "custom_fields": [],
+        "column_type": "text",
+        "column_comment": null,
+        "index": {
+            "isPrimaryKey": false,
+            "isForeignKey": false,
+            "referencedColumnId": null,
+            "isOtherIndex": false
+        },
+        "nullable": true,
+        "schema_id": 1,
+        "table_id": 556,
+        "table_name": "public.rosemeta_customfieldvalue",
+        "position": 4
+    }
+    '''
+    
     Args:
         table_name: Name of the table
         column_name: Name of the column to get information about
@@ -756,89 +800,49 @@ def get_key_from_object_info(object_info):
 
 def get_data_steward_info():
     """
-    Returns information about data stewards/owners and what makes data well curated.
+    Returns information about data stewards/owners, curation best practices, and provides logic for automated steward suggestions.
+
+    Data stewards (owners) are responsible for the quality, documentation, and governance of data assets. Well-curated data is well-documented, has clear ownership, and follows governance best practices.
+
+    Steward Assignment Logic:
+    - The agent should analyze schema, table name, column names, tags, glossary terms, and usage lineage.
+    - Match these against the criteria below to suggest the top 1–2 matching stewards for approval.
+    - If a table matches multiple domains, suggest co-stewards or route for manual resolution.
+
+    Example Domains and Matching Criteria:
+    - Jay: Product Engineering & IoT Telemetry
+      - Keywords: telemetry, sensor, firmware, device_metrics, diagnostics, component_status
+      - Schemas: iot_logs, device_metrics, hardware_telemetry
+      - Tags: IoT, DeviceHealth, EngineeringData
+
+    - Abhinav Khandelwal: Scientific Modeling & Experimental Data
+      - Keywords: experiment, model_eval, hypothesis, sim_results, lab_data
+      - Schemas: science_lab, research_data, modeling
+      - Tags: Simulation, LabData, R&D, MLExperimentTracking
+
+    - Mrugesh: Customer Behavior & Engagement Analytics
+      - Keywords: clickstream, session, user_events, engagement, page_views, conversion_rate
+      - Schemas: customer_analytics, behavior_tracking, web_analytics
+      - Tags: UserEngagement, WebAnalytics, SessionData
+
+    - Yogesh(YK): Inventory, Logistics & Supply Chain
+      - Keywords: inventory, shipment, warehouse, supply_chain, sku, stock_level, order_fulfillment
+      - Schemas: logistics, inventory_ops, supply_data
+      - Tags: InventoryAnalytics, SupplyChain, WarehouseData
+
+    - Ravi: Finance & Revenue Analytics
+      - Keywords: revenue, profit, forecast, pricing, budget, transaction, invoice, AR_AP
+      - Schemas: finance_reporting, revenue_mgmt, transactions
+      - Tags: FinanceData, RevenueAnalytics, ProfitForecast
+
+    Usage Guide:
+    - When asked about stewards, analyze the data asset and suggest the best-matching steward(s) based on the above.
+    - Always ask the user for consent before applying a steward.
+    - If the user declines, suggest alternative stewards.
+    - If the user requests, apply the steward directly.
+
+    This tool helps automate and explain the steward assignment process for data curation.
     """
-    return (
-        "Data stewards or owners are responsible for the quality, documentation, and governance of data assets. "
-        "Declarative and well-curated data is well-documented, has clear ownership, and follows best practices for data governance."
-        """
-Purpose: This document outlines steward assignment logic for key domain experts. It defines domain scope for each user and provides matching rules to guide automated steward suggestions based on table metadata (table name, schema, column names, glossary terms, tags, etc.).
-
-👤 Mrugesh
-Domain: Product Engineering & IoT Telemetry
-Description: Expert in datasets related to hardware components, engineering design data, sensor logs, telemetry signals, machine diagnostics, and firmware metrics.
-
-Matching Criteria:
-
-Schema/Table/Column contains terms like: telemetry, sensor, firmware, device_metrics, diagnostics, component_status
-
-Belongs to schemas: iot_logs, device_metrics, hardware_telemetry
-
-Tag examples: IoT, DeviceHealth, EngineeringData
-
-👤 Yogesh(YK)
-Domain: Scientific Modeling & Experimental Data
-Description: Specializes in data from simulations, lab experiments, and model evaluations. Handles structured/unstructured research data and hypothesis tracking.
-
-Matching Criteria:
-
-Schema/Table/Column contains: experiment, model_eval, hypothesis, sim_results, lab_data
-
-Belongs to schemas: science_lab, research_data, modeling
-
-Tag examples: Simulation, LabData, R&D, MLExperimentTracking
-
-👤 Harsh Patel
-Domain: Customer Behavior & Engagement Analytics
-Description: Focused on customer interaction data, session metrics, engagement funnels, clickstream analytics, and web/mobile behavior tracking.
-
-Matching Criteria:
-
-Table name or column contains: clickstream, session, user_events, engagement, page_views, conversion_rate
-
-Belongs to schemas: customer_analytics, behavior_tracking, web_analytics
-
-Tag examples: UserEngagement, WebAnalytics, SessionData
-
-👤 Salil Admiin
-Domain: Inventory, Logistics & Supply Chain
-Description: Manages data products related to warehouse operations, supply chain flow, shipment tracking, and SKU-level inventory analytics.
-
-Matching Criteria:
-
-Table or column contains: inventory, shipment, warehouse, supply_chain, sku, stock_level, order_fulfillment
-
-Schemas: logistics, inventory_ops, supply_data
-
-Tag examples: InventoryAnalytics, SupplyChain, WarehouseData
-
-👤 Abhinav Khandelwal
-Domain: Finance & Revenue Analytics
-Description: Expert in financial metrics, transactions, pricing models, profit/loss dashboards, and budgeting forecasts.
-
-Matching Criteria:
-
-Table or column contains: revenue, profit, forecast, pricing, budget, transaction, invoice, AR_AP
-
-Schemas: finance_reporting, revenue_mgmt, transactions
-
-Tag examples: FinanceData, RevenueAnalytics, ProfitForecast
-
-🧠 Usage Guide for Agent
-When scanning a new table, the agent should:
-
-Analyze schema, table name, and column names
-
-Check tags, glossary links, and usage lineage
-
-Match against the criteria above
-
-Suggest the top 1–2 matching stewards for approval
-
-Optionally: If the table matches multiple domains, assign co-stewards or route for manual resolution.
-"""
-    )
-
 
 
 
